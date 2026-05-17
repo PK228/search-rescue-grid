@@ -97,20 +97,27 @@
       min-height: 0;
     }
 
-    /* Leaflet cell labels */
-    .cell-div-icon {
-      background: transparent !important;
+    /* Leaflet cell label tooltips — plain DOM text, always crisp */
+    .leaflet-tooltip.cell-tip {
+      background: none !important;
       border: none !important;
-      pointer-events: none;
+      box-shadow: none !important;
+      padding: 0 !important;
+      pointer-events: none !important;
+      white-space: nowrap;
     }
-    .cell-div-icon div {
-      text-align: center;
-      line-height: 1.25;
-      white-space: pre;
-      pointer-events: none;
-      text-shadow: 0 1px 3px rgba(0,0,0,.9), 0 0 6px rgba(0,0,0,.9);
+    .leaflet-tooltip.cell-tip::before { display: none !important; }
+    .cell-tip-inner {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2px 6px;
+      border-radius: 5px;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      line-height: 1.3;
     }
+    .cell-tip-id   { font-size: 11px; font-weight: 800; }
+    .cell-tip-name { font-size: 9px;  font-weight: 600; }
 
     /* ── STATS OVERLAY (on map, top-left) ── */
     #stats-overlay {
@@ -502,15 +509,17 @@ function buildMapGrid() {
       const rect = L.rectangle([[s, w], [n, e]], cellStyle('available', false))
         .addTo(leafletMap);
 
-      const center = [(s + n) / 2, (w + e) / 2];
-      const marker = L.marker(center, {
-        icon: makeCellIcon(id, null),
+      // Permanent tooltip = crisp DOM text, no transform blurring
+      rect.bindTooltip(makeLabelHtml(id, null), {
+        permanent: true,
+        direction: 'center',
+        className: 'cell-tip',
         interactive: false,
-        zIndexOffset: 200,
-      }).addTo(leafletMap);
+        opacity: 1,
+      }).openTooltip();
 
       rect.on('click', () => onCellTap(id));
-      cellLayers[id] = { rect, marker };
+      cellLayers[id] = { rect };
     }
   }
 }
@@ -529,40 +538,32 @@ function cellStyle(status, isStale) {
   return styles[s] || styles.available;
 }
 
-// Cell label divIcon — dark text, readable on light map
-function makeCellIcon(id, data) {
+// Cell label HTML for permanent tooltips
+function makeLabelHtml(id, data) {
   const status = data?.status || 'available';
   const name   = ((data?.volunteerName || '').split(' ')[0]).substring(0, 9);
 
-  // bg + text colour pairs: [background, textColour]
   const theme = {
-    available: ['rgba(255,255,255,0.7)', '#1565c0'],
-    searching: ['rgba(255,152,0,0.85)',  '#000'],
-    completed: ['rgba(67,160,71,0.85)',  '#fff'],
-    emergency: ['rgba(244,67,54,0.92)',  '#fff'],
-    found:     ['rgba(233,30,140,0.92)', '#fff'],
-    stale:     ['rgba(255,112,67,0.85)', '#000'],
+    available: ['rgba(255,255,255,0.82)', '#1565c0'],
+    searching: ['rgba(255,152,0,0.90)',   '#000'],
+    completed: ['rgba(56,142,60,0.90)',   '#fff'],
+    emergency: ['rgba(211,47,47,0.95)',   '#fff'],
+    found:     ['rgba(194,24,91,0.95)',   '#fff'],
+    stale:     ['rgba(230,81,0,0.90)',    '#fff'],
   };
   const [bg, fg] = theme[status] || theme.available;
 
-  let line2 = '';
-  if (status === 'searching') line2 = name;
-  if (status === 'completed') line2 = '✓ clear';
-  if (status === 'emergency') line2 = '⚠️ ' + name;
-  if (status === 'found')     line2 = '🎉 FOUND';
-  if (status === 'stale')     line2 = name + ' ⚠';
+  let sub = '';
+  if (status === 'searching') sub = name;
+  if (status === 'completed') sub = '✓ clear';
+  if (status === 'emergency') sub = '⚠️ ' + name;
+  if (status === 'found')     sub = '🎉 FOUND';
+  if (status === 'stale')     sub = name + ' ⚠';
 
-  const inner = `<div style="font-size:11px;font-weight:800">${id}</div>` +
-    (line2 ? `<div style="font-size:9px;font-weight:600;margin-top:1px">${line2}</div>` : '');
-
-  const html = `<div style="background:${bg};color:${fg};padding:2px 5px;border-radius:4px;text-align:center;line-height:1.3;box-shadow:0 1px 4px rgba(0,0,0,.4);white-space:nowrap">${inner}</div>`;
-
-  return L.divIcon({
-    className: 'cell-div-icon',
-    html,
-    iconSize: [56, 28],
-    iconAnchor: [28, 14],
-  });
+  return `<div class="cell-tip-inner" style="background:${bg};color:${fg}">` +
+    `<span class="cell-tip-id">${id}</span>` +
+    (sub ? `<span class="cell-tip-name">${sub}</span>` : '') +
+    `</div>`;
 }
 
 function updateCellUI(id, data) {
@@ -576,12 +577,13 @@ function updateCellUI(id, data) {
     if (age > STALE_THRESH) { s = 'stale'; isStale = true; }
   }
 
+  const displayData = data ? { ...data, status: s } : null;
   layers.rect.setStyle(cellStyle(s, isStale));
-  layers.marker.setIcon(makeCellIcon(id, data ? { ...data, status: s } : null));
+  layers.rect.setTooltipContent(makeLabelHtml(id, displayData));
 
-  // Highlight own cell
+  // Bold white dashed border on own cell
   if (data?.volunteerId === myId && s === 'searching') {
-    layers.rect.setStyle({ ...cellStyle('searching', false), color: '#fff', weight: 3, dashArray: '6 3' });
+    layers.rect.setStyle({ ...cellStyle('searching', false), color: '#fff', weight: 3, dashArray: '5 4' });
   }
 }
 
