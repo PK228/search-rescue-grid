@@ -1,0 +1,1144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+  <title>SEARCH GRID — Emergency Coordination</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0d0d0d;
+      --surface: #1a1a1a;
+      --border: #2e2e2e;
+      --text: #f0f0f0;
+      --muted: #888;
+      --red: #e53935;
+      --yellow: #f9a825;
+      --green: #2e7d32;
+      --pink: #e91e8c;
+      --orange: #e65100;
+      --blue: #0288d1;
+    }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    /* ── BANNERS ── */
+    #found-banner {
+      display: none;
+      background: var(--pink);
+      color: #fff;
+      text-align: center;
+      padding: 14px;
+      font-weight: 800;
+      font-size: 15px;
+      letter-spacing: 1px;
+      position: sticky;
+      top: 0;
+      z-index: 300;
+    }
+    #emergency-banner {
+      display: none;
+      background: var(--red);
+      color: #fff;
+      text-align: center;
+      padding: 10px;
+      font-weight: 700;
+      font-size: 13px;
+      animation: blink 1s infinite;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.6} }
+
+    /* ── HEADER ── */
+    #app-header {
+      display: none;
+      background: #150000;
+      border-bottom: 2px solid var(--red);
+      padding: 8px 14px;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      position: sticky;
+      top: 0;
+      z-index: 200;
+    }
+    #app-header h1 { font-size: 14px; font-weight: 800; color: var(--red); letter-spacing: 2px; }
+    #header-sub { font-size: 11px; color: var(--muted); }
+    .hdr-btn {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 7px 11px;
+      border-radius: 8px;
+      font-size: 12px;
+      cursor: pointer;
+      white-space: nowrap;
+      touch-action: manipulation;
+    }
+    #hb-dot {
+      display: inline-block;
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: #444;
+      margin-right: 4px;
+    }
+    #hb-dot.alive { background: #4caf50; animation: pulse-hb 2s infinite; }
+    @keyframes pulse-hb { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+    /* ── SCREENS ── */
+    .screen { display: none; flex: 1; flex-direction: column; gap: 14px; padding: 20px 16px; max-width: 460px; margin: 0 auto; width: 100%; }
+    .screen.active { display: flex; }
+    #grid-screen { max-width: 100%; padding: 6px 6px 80px; }
+
+    /* ── FORMS ── */
+    h2 { font-size: 22px; font-weight: 700; }
+    p.muted { font-size: 13px; color: var(--muted); line-height: 1.5; }
+    label { font-size: 13px; color: var(--muted); font-weight: 500; }
+    .field { display: flex; flex-direction: column; gap: 6px; }
+    input[type="tel"], input[type="text"], input[type="number"] {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 14px 16px;
+      border-radius: 10px;
+      font-size: 18px;
+      width: 100%;
+      outline: none;
+    }
+    input:focus { border-color: var(--red); }
+    .err { font-size: 12px; color: var(--red); min-height: 16px; }
+
+    /* ── BUTTONS ── */
+    .btn {
+      padding: 14px 18px;
+      border-radius: 12px;
+      border: none;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      width: 100%;
+      touch-action: manipulation;
+      transition: opacity .15s;
+    }
+    .btn:active { opacity: .7; }
+    .btn-primary  { background: var(--red);    color: #fff; }
+    .btn-ghost    { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
+    .btn-green    { background: var(--green);   color: #fff; }
+    .btn-yellow   { background: var(--yellow);  color: #000; }
+    .btn-orange   { background: var(--orange);  color: #fff; }
+    .btn-found    { background: var(--pink);    color: #fff; font-size: 17px; padding: 18px; }
+    .btn-sm { padding: 8px 12px; font-size: 13px; border-radius: 8px; width: auto; }
+
+    /* ── SETUP WARNING ── */
+    #setup-warn {
+      background: #1a1200;
+      border: 1px solid #b07a00;
+      border-radius: 10px;
+      padding: 14px;
+      font-size: 12px;
+      color: #ffcc66;
+      line-height: 1.6;
+    }
+    #setup-warn code { background: #000; padding: 1px 5px; border-radius: 3px; font-family: monospace; }
+    #setup-warn { display: none; }
+
+    /* ── GRID ── */
+    #grid-outer { overflow: auto; -webkit-overflow-scrolling: touch; }
+    #grid-wrapper { display: inline-block; min-width: 100%; }
+    #col-labels { display: flex; padding-left: 28px; gap: 2px; margin-bottom: 2px; }
+    .cl { flex: 1; text-align: center; font-size: 9px; color: var(--muted); font-weight: 700; }
+    #grid-body { display: flex; gap: 2px; }
+    #row-labels { display: flex; flex-direction: column; gap: 2px; width: 28px; flex-shrink: 0; }
+    .rl { display: flex; align-items: center; justify-content: center; font-size: 9px; color: var(--muted); font-weight: 700; }
+    #grid-cells { display: grid; gap: 2px; flex: 1; }
+
+    .cell {
+      background: #1e1e1e;
+      border-radius: 4px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 3px 2px;
+      touch-action: manipulation;
+      user-select: none;
+      position: relative;
+      transition: transform .1s;
+      border: 1px solid #2a2a2a;
+    }
+    .cell:active { transform: scale(.93); }
+    .cell[data-s="searching"]  { background: var(--yellow);  color: #000; border-color: #b07a00; }
+    .cell[data-s="completed"]  { background: #1b4d2e;        color: #7dff9e; border-color: #2e7d32; }
+    .cell[data-s="emergency"]  { background: var(--red);     color: #fff; animation: blink 1s infinite; }
+    .cell[data-s="found"]      { background: var(--pink);    color: #fff; animation: blink .5s infinite; }
+    .cell[data-s="stale"]      { background: #3d2600;        color: #ffaa44; border-color: #7a4e00; }
+    .cell[data-mine="1"]       { outline: 2px solid #fff; outline-offset: -2px; }
+    .cell-id   { font-size: 9px;  font-weight: 800; line-height: 1; }
+    .cell-name { font-size: 8px;  line-height: 1; margin-top: 2px; max-width: 90%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    .gps-dot {
+      position: absolute; top: 2px; right: 2px;
+      width: 7px; height: 7px;
+      background: var(--blue);
+      border-radius: 50%;
+      border: 1px solid #fff;
+    }
+
+    /* ── STATS BAR ── */
+    #stats-bar { display: flex; gap: 10px; padding: 4px 2px; font-size: 11px; color: var(--muted); flex-wrap: wrap; }
+    #stats-bar span strong { font-weight: 700; }
+
+    /* ── LEGEND ── */
+    #legend {
+      display: flex; flex-wrap: wrap; gap: 8px;
+      padding: 8px 10px;
+      background: var(--surface);
+      border-radius: 8px;
+      margin-top: 4px;
+    }
+    .li { display: flex; align-items: center; gap: 4px; font-size: 10px; color: var(--muted); }
+    .ld { width: 11px; height: 11px; border-radius: 3px; flex-shrink: 0; }
+
+    /* ── MY CELL BAR (bottom sticky) ── */
+    #my-bar {
+      display: none;
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      background: #1a1200;
+      border-top: 2px solid var(--yellow);
+      padding: 10px 14px;
+      z-index: 150;
+      align-items: center;
+      gap: 10px;
+    }
+    #my-bar-text { font-size: 13px; color: var(--yellow); flex: 1; }
+    #my-bar-text strong { color: #fff; }
+
+    /* ── MODAL ── */
+    #modal-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.85);
+      z-index: 400;
+      align-items: flex-end;
+      justify-content: center;
+    }
+    #modal-overlay.open { display: flex; }
+    #modal {
+      background: #1c1c1c;
+      border-radius: 18px 18px 0 0;
+      padding: 20px 16px 28px;
+      width: 100%;
+      max-width: 480px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      max-height: 85dvh;
+      overflow-y: auto;
+    }
+    #modal h2 { font-size: 20px; }
+    #modal p  { font-size: 13px; color: var(--muted); line-height: 1.4; }
+    #modal-vol {
+      background: var(--bg);
+      border-radius: 8px;
+      padding: 11px 13px;
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.6;
+      display: none;
+    }
+    #modal-vol strong { color: var(--text); }
+    #modal-btns { display: flex; flex-direction: column; gap: 10px; }
+
+    /* ── ADMIN ── */
+    #admin-screen { max-width: 100%; }
+    .admin-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .admin-table th { background: var(--surface); padding: 8px; text-align: left; font-weight: 600; }
+    .admin-table td { padding: 7px 8px; border-bottom: 1px solid var(--border); }
+    #audit-log {
+      max-height: 280px; overflow-y: auto;
+      background: var(--bg);
+      border-radius: 8px;
+      padding: 8px;
+      font-size: 11px;
+      font-family: monospace;
+    }
+    .log-row { padding: 3px 0; border-bottom: 1px solid var(--border); line-height: 1.4; }
+    .log-row:last-child { border: none; }
+    h3 { font-size: 15px; font-weight: 600; margin-top: 4px; }
+
+    #recaptcha-container { min-height: 0; }
+  </style>
+</head>
+<body>
+
+<!-- FOUND BANNER (global) -->
+<div id="found-banner">🎉 SHE HAS BEEN FOUND — SEARCH COMPLETE 🎉</div>
+
+<!-- EMERGENCY BANNER -->
+<div id="emergency-banner">⚠️ EMERGENCY — A VOLUNTEER NEEDS IMMEDIATE ASSISTANCE ⚠️</div>
+
+<!-- HEADER -->
+<div id="app-header">
+  <div>
+    <h1>🔴 SEARCH GRID</h1>
+    <div id="header-sub"><span id="hb-dot"></span><span id="hdr-name">Volunteer</span></div>
+  </div>
+  <div style="display:flex;gap:6px">
+    <button class="hdr-btn" id="gps-btn">📍 GPS</button>
+    <button class="hdr-btn" id="admin-btn">⚙ Admin</button>
+  </div>
+</div>
+
+<!-- ════════════════ SCREEN: PHONE ════════════════ -->
+<div id="screen-phone" class="screen active">
+  <div>
+    <h2 style="color:var(--red)">EMERGENCY<br>SEARCH GRID</h2>
+    <p class="muted" style="margin-top:6px">Toronto — Keele → Yonge · Steeles → Eglinton</p>
+  </div>
+
+  <div id="setup-warn">
+    <strong>⚠ Firebase Not Configured</strong><br><br>
+    To enable real-time multi-device sync:<br>
+    1. Go to <code>console.firebase.google.com</code><br>
+    2. Create project → Enable <strong>Firestore</strong> (test mode)<br>
+    3. Enable <strong>Authentication → Phone</strong><br>
+    4. Register a Web App → copy config<br>
+    5. Paste values into <code>FIREBASE_CONFIG</code> at top of this file<br>
+    6. Add your deploy domain to Auth → Authorized Domains<br><br>
+    <strong>Quick test:</strong> set <code>DEMO_MODE = true</code> below for local-only demo.
+  </div>
+
+  <div class="field">
+    <label>Your mobile number</label>
+    <input type="tel" id="inp-phone" placeholder="+1 416 555 0100" autocomplete="tel">
+  </div>
+
+  <div id="recaptcha-container"></div>
+
+  <button class="btn btn-primary" id="btn-send-otp">Send Verification Code →</button>
+  <div class="err" id="err-phone"></div>
+
+  <p class="muted" style="font-size:11px;text-align:center">Your number identifies you during this operation only.</p>
+</div>
+
+<!-- ════════════════ SCREEN: OTP ════════════════ -->
+<div id="screen-otp" class="screen">
+  <h2>Enter Code</h2>
+  <p class="muted">We sent a 6-digit code to your phone.</p>
+  <div class="field">
+    <label>Verification Code</label>
+    <input type="number" id="inp-otp" placeholder="123456" inputmode="numeric" maxlength="6">
+  </div>
+  <button class="btn btn-primary" id="btn-verify">Verify →</button>
+  <button class="btn btn-ghost" id="btn-back-phone">← Back</button>
+  <div class="err" id="err-otp"></div>
+</div>
+
+<!-- ════════════════ SCREEN: NAME ════════════════ -->
+<div id="screen-name" class="screen">
+  <h2>Your Name</h2>
+  <p class="muted">Other volunteers will see this on the grid.</p>
+  <div class="field">
+    <label>First name or call sign</label>
+    <input type="text" id="inp-name" placeholder="e.g. David" maxlength="20" autocomplete="given-name">
+  </div>
+  <button class="btn btn-primary" id="btn-save-name">Join Search →</button>
+  <div class="err" id="err-name"></div>
+</div>
+
+<!-- ════════════════ SCREEN: GRID ════════════════ -->
+<div id="screen-grid" class="screen">
+
+  <div id="stats-bar">
+    <span>🟡 Searching: <strong id="st-active" style="color:var(--yellow)">0</strong></span>
+    <span>🟢 Cleared: <strong id="st-clear" style="color:#4caf50">0</strong></span>
+    <span>🔴 Emergency: <strong id="st-emerg" style="color:var(--red)">0</strong></span>
+    <span style="margin-left:auto;color:var(--muted)">Tap a square to claim</span>
+  </div>
+
+  <div id="grid-outer">
+    <div id="grid-wrapper">
+      <div id="col-labels"></div>
+      <div id="grid-body">
+        <div id="row-labels"></div>
+        <div id="grid-cells"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="legend">
+    <div class="li"><div class="ld" style="background:#1e1e1e;border:1px solid #333"></div>Available</div>
+    <div class="li"><div class="ld" style="background:var(--yellow)"></div>Searching</div>
+    <div class="li"><div class="ld" style="background:#1b4d2e;border:1px solid #2e7d32"></div>Cleared</div>
+    <div class="li"><div class="ld" style="background:var(--red)"></div>Emergency</div>
+    <div class="li"><div class="ld" style="background:var(--pink)"></div>FOUND</div>
+    <div class="li"><div class="ld" style="background:#3d2600;border:1px solid #7a4e00"></div>Stale (no update)</div>
+    <div class="li"><div class="ld" style="background:var(--blue);border-radius:50%"></div>Your GPS</div>
+  </div>
+
+</div>
+
+<!-- MY CELL BAR (fixed bottom) -->
+<div id="my-bar">
+  <div id="my-bar-text">Searching: <strong id="my-bar-cell">—</strong></div>
+  <button class="btn btn-yellow btn-sm" id="btn-update-mine">Update Status</button>
+</div>
+
+<!-- ════════════════ SCREEN: ADMIN ════════════════ -->
+<div id="screen-admin" class="screen">
+  <div style="display:flex;align-items:center;gap:10px">
+    <button class="btn btn-ghost btn-sm" id="btn-admin-back">← Grid</button>
+    <h2 style="margin:0;font-size:17px">Admin Dashboard</h2>
+  </div>
+
+  <div style="display:flex;gap:8px;flex-wrap:wrap">
+    <button class="btn btn-found btn-sm" id="btn-mark-found" style="flex:1">🚨 Declare FOUND</button>
+    <button class="btn btn-orange btn-sm" id="btn-release-stale" style="flex:1">🔓 Release Stale</button>
+    <button class="btn btn-ghost btn-sm" id="btn-export-csv" style="flex:1">⬇ Export Log</button>
+  </div>
+
+  <h3>Active Volunteers</h3>
+  <div id="admin-volunteers" style="overflow-x:auto"></div>
+
+  <h3>Audit Log (latest 100)</h3>
+  <div id="audit-log"><p class="muted" style="padding:8px">Loading…</p></div>
+</div>
+
+<!-- ════════════════ MODAL ════════════════ -->
+<div id="modal-overlay">
+  <div id="modal">
+    <h2 id="modal-title">Cell</h2>
+    <p id="modal-desc"></p>
+    <div id="modal-vol"></div>
+    <div id="modal-btns"></div>
+    <button class="btn btn-ghost" id="btn-modal-close">Cancel</button>
+  </div>
+</div>
+
+<!-- ════════════════ FIREBASE + APP ════════════════ -->
+<script type="module">
+
+// ══════════════════════════════════════════════
+//  ▼▼▼  EDIT THESE VALUES BEFORE DEPLOYING  ▼▼▼
+// ══════════════════════════════════════════════
+
+const FIREBASE_CONFIG = {
+  apiKey:            "YOUR_API_KEY",
+  authDomain:        "YOUR_PROJECT_ID.firebaseapp.com",
+  projectId:         "YOUR_PROJECT_ID",
+  storageBucket:     "YOUR_PROJECT_ID.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId:             "YOUR_APP_ID"
+};
+
+// Admin PIN — change before sharing
+const ADMIN_PIN = "7734";
+
+// DEMO_MODE: true = no Firebase, uses localStorage only (single device)
+const DEMO_MODE = false;
+
+// ══════════════════════════════════════════════
+//  GRID DEFINITION  (Toronto: Keele→Yonge, Steeles→Eglinton)
+// ══════════════════════════════════════════════
+const G = {
+  cols:  7,
+  rows: 11,
+  west:  -79.473,   // Keele St
+  east:  -79.390,   // Yonge St
+  north:  43.796,   // Steeles Ave
+  south:  43.695,   // Eglinton Ave
+};
+const COL_LBL  = ['A','B','C','D','E','F','G'];
+const COL_HINT = ['Keele','Dufferin','Bathurst','Ave Rd','Spadina','Bay','Yonge'];
+const ROW_HINT = ['Steeles','Finch','Sheppard','Wilson','Lawrence','Lawrence E','York Mills','Glencairn','Eglinton W','Chaplin Cr','Eglinton E'];
+
+const HB_INTERVAL    = 5  * 60 * 1000;  // heartbeat every 5 min
+const STALE_THRESH   = 20 * 60 * 1000;  // show stale after 20 min
+const RELEASE_THRESH = 35 * 60 * 1000;  // auto-release after 35 min
+
+// ══════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════
+let fbApp, fbAuth, fbDb;
+let user       = null;   // Firebase user
+let myName     = null;
+let myCell     = null;   // cellId currently claimed by this user
+let gridState  = {};     // cellId → data
+let isAdmin    = false;
+let hbTimer    = null;
+let gpsClear   = null;   // watchPosition id
+let confirmRes = null;   // phone OTP confirmation
+
+// ══════════════════════════════════════════════
+//  FIREBASE INIT
+// ══════════════════════════════════════════════
+import { initializeApp }
+  from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+import {
+  getAuth, RecaptchaVerifier, signInWithPhoneNumber,
+  signInAnonymously, onAuthStateChanged
+} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+import {
+  getFirestore, doc, collection, onSnapshot,
+  setDoc, updateDoc, deleteDoc, getDoc, getDocs,
+  serverTimestamp, runTransaction,
+  query, orderBy, limit
+} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+
+document.addEventListener('DOMContentLoaded', () => {
+  const configured = FIREBASE_CONFIG.apiKey !== 'YOUR_API_KEY';
+
+  if (DEMO_MODE) {
+    document.getElementById('setup-warn').style.display = 'block';
+    document.getElementById('setup-warn').innerHTML =
+      '<strong>⚠ DEMO MODE</strong> — data is local only, not shared between devices.';
+    enterDemoMode();
+    return;
+  }
+
+  if (!configured) {
+    document.getElementById('setup-warn').style.display = 'block';
+    return;
+  }
+
+  try {
+    fbApp  = initializeApp(FIREBASE_CONFIG);
+    fbAuth = getAuth(fbApp);
+    fbDb   = getFirestore(fbApp);
+    initRecaptcha();
+    onAuthStateChanged(fbAuth, async u => {
+      if (u) {
+        user = u;
+        const saved = localStorage.getItem('sgName');
+        if (saved) { myName = saved; enterApp(); }
+        else        { showScreen('screen-name'); }
+      } else {
+        showScreen('screen-phone');
+      }
+    });
+  } catch (e) {
+    setErr('err-phone', 'Firebase error: ' + e.message);
+  }
+});
+
+// ── Recaptcha ──
+let rcap;
+function initRecaptcha() {
+  try {
+    rcap = new RecaptchaVerifier(fbAuth, 'recaptcha-container', { size: 'invisible' });
+  } catch (e) { console.warn('recaptcha:', e); }
+}
+
+// ── Send OTP ──
+document.getElementById('btn-send-otp').addEventListener('click', async () => {
+  clearErr('err-phone');
+  const raw = document.getElementById('inp-phone').value.trim();
+  if (!raw) return setErr('err-phone', 'Enter your phone number.');
+  const phone = raw.startsWith('+') ? raw : '+1' + raw.replace(/\D/g, '');
+  try {
+    if (!rcap) initRecaptcha();
+    confirmRes = await signInWithPhoneNumber(fbAuth, phone, rcap);
+    showScreen('screen-otp');
+  } catch (e) {
+    setErr('err-phone', errMsg(e));
+    try { rcap.clear(); } catch {}
+    rcap = null;
+    initRecaptcha();
+  }
+});
+
+// ── Verify OTP ──
+document.getElementById('btn-verify').addEventListener('click', async () => {
+  clearErr('err-otp');
+  const code = document.getElementById('inp-otp').value.trim();
+  if (!code || code.length < 6) return setErr('err-otp', 'Enter the 6-digit code.');
+  try {
+    await confirmRes.confirm(code);
+    // onAuthStateChanged handles the rest
+  } catch (e) {
+    setErr('err-otp', 'Incorrect code. Try again.');
+  }
+});
+
+document.getElementById('btn-back-phone').addEventListener('click', () => showScreen('screen-phone'));
+
+// ── Save Name ──
+document.getElementById('btn-save-name').addEventListener('click', () => {
+  clearErr('err-name');
+  const n = document.getElementById('inp-name').value.trim();
+  if (!n) return setErr('err-name', 'Enter your name.');
+  myName = n;
+  localStorage.setItem('sgName', n);
+  enterApp();
+});
+
+// ══════════════════════════════════════════════
+//  ENTER APP
+// ══════════════════════════════════════════════
+function enterApp() {
+  document.getElementById('app-header').style.display = 'flex';
+  document.getElementById('hdr-name').textContent = myName;
+  buildGrid();
+  subscribeGrid();
+  subscribeLog();
+  startHeartbeat();
+  startStaleWatch();
+  showScreen('screen-grid');
+}
+
+// ══════════════════════════════════════════════
+//  BUILD GRID
+// ══════════════════════════════════════════════
+function buildGrid() {
+  const cells   = document.getElementById('grid-cells');
+  const colLbls = document.getElementById('col-labels');
+  const rowLbls = document.getElementById('row-labels');
+
+  cells.style.gridTemplateColumns = `repeat(${G.cols}, 1fr)`;
+  const ch = Math.max(44, Math.floor((window.innerHeight - 250) / G.rows));
+  cells.style.gridAutoRows = ch + 'px';
+
+  // Column labels
+  colLbls.innerHTML = '';
+  for (let c = 0; c < G.cols; c++) {
+    const el = document.createElement('div');
+    el.className = 'cl';
+    el.textContent = COL_LBL[c];
+    colLbls.appendChild(el);
+  }
+
+  // Row labels
+  rowLbls.innerHTML = '';
+  for (let r = 0; r < G.rows; r++) {
+    const el = document.createElement('div');
+    el.className = 'rl';
+    el.style.height = ch + 'px';
+    el.textContent = r + 1;
+    el.title = ROW_HINT[r] || '';
+    rowLbls.appendChild(el);
+  }
+
+  // Cells
+  cells.innerHTML = '';
+  for (let r = 0; r < G.rows; r++) {
+    for (let c = 0; c < G.cols; c++) {
+      const id  = COL_LBL[c] + (r + 1);
+      const el  = document.createElement('div');
+      el.className   = 'cell';
+      el.dataset.cid = id;
+      el.dataset.s   = 'available';
+      el.innerHTML   = `<div class="cell-id">${id}</div><div class="cell-name"></div>`;
+      el.addEventListener('click', () => onCellTap(id));
+      cells.appendChild(el);
+    }
+  }
+}
+
+// ══════════════════════════════════════════════
+//  FIRESTORE SUBSCRIPTIONS
+// ══════════════════════════════════════════════
+let unsubGrid, unsubLog;
+
+function subscribeGrid() {
+  if (unsubGrid) unsubGrid();
+  unsubGrid = onSnapshot(collection(fbDb, 'grids'), snap => {
+    snap.docChanges().forEach(ch => {
+      const id   = ch.doc.id;
+      const data = ch.type === 'removed' ? null : ch.doc.data();
+      gridState[id] = data;
+      updateCellUI(id, data);
+
+      // Track my cell
+      if (data && user && data.volunteerId === user.uid && data.status === 'searching') {
+        myCell = id;
+        showMyBar();
+      } else if (!data && myCell === id) {
+        myCell = null; hideMyBar();
+      } else if (data && user && data.volunteerId === user.uid && data.status !== 'searching') {
+        if (myCell === id) { myCell = null; hideMyBar(); }
+      }
+    });
+    updateStats();
+    checkGlobal();
+  });
+}
+
+function subscribeLog() {
+  if (unsubLog) unsubLog();
+  const q = query(collection(fbDb, 'logs'), orderBy('ts', 'desc'), limit(100));
+  unsubLog = onSnapshot(q, snap => renderLog(snap.docs.map(d => d.data())));
+}
+
+// ══════════════════════════════════════════════
+//  CELL UI
+// ══════════════════════════════════════════════
+function updateCellUI(id, data) {
+  const el = document.querySelector(`[data-cid="${id}"]`);
+  if (!el) return;
+
+  if (!data || data.status === 'available') {
+    el.dataset.s   = 'available';
+    el.querySelector('.cell-name').textContent = '';
+    el.dataset.mine = '0';
+    return;
+  }
+
+  let s = data.status;
+  if (s === 'searching' && data.lastHb) {
+    const age = Date.now() - (data.lastHb.toMillis ? data.lastHb.toMillis() : data.lastHb);
+    if (age > STALE_THRESH) s = 'stale';
+  }
+
+  el.dataset.s    = s;
+  el.dataset.mine = (user && data.volunteerId === user.uid) ? '1' : '0';
+  const first = (data.volunteerName || '').split(' ')[0].substring(0, 9);
+  el.querySelector('.cell-name').textContent = first;
+}
+
+// ══════════════════════════════════════════════
+//  STATS + GLOBAL BANNERS
+// ══════════════════════════════════════════════
+function updateStats() {
+  let active = 0, clear = 0, emerg = 0;
+  Object.values(gridState).forEach(d => {
+    if (!d) return;
+    if (d.status === 'searching') active++;
+    else if (d.status === 'completed') clear++;
+    else if (d.status === 'emergency') emerg++;
+  });
+  document.getElementById('st-active').textContent = active;
+  document.getElementById('st-clear').textContent  = clear;
+  document.getElementById('st-emerg').textContent  = emerg;
+  document.getElementById('emergency-banner').style.display = emerg ? 'block' : 'none';
+
+  // Refresh admin volunteers if visible
+  if (isAdmin && document.getElementById('screen-admin').classList.contains('active')) {
+    renderAdminVolunteers();
+  }
+}
+
+function checkGlobal() {
+  const found = Object.values(gridState).some(d => d && d.status === 'found');
+  document.getElementById('found-banner').style.display = found ? 'block' : 'none';
+}
+
+// ══════════════════════════════════════════════
+//  CELL TAP → MODAL
+// ══════════════════════════════════════════════
+function onCellTap(id) {
+  const data   = gridState[id] || null;
+  const status = data?.status || 'available';
+  const isMine = user && data?.volunteerId === user.uid;
+
+  const col    = COL_LBL.indexOf(id[0]);
+  const row    = parseInt(id.slice(1)) - 1;
+  const area   = `${COL_HINT[col] || id[0]} × ${ROW_HINT[row] || (row + 1)}`;
+
+  setEl('modal-title', `Cell ${id}`);
+  setEl('modal-desc', `Near: ${area}`);
+  document.getElementById('modal-vol').style.display = 'none';
+  document.getElementById('modal-btns').innerHTML    = '';
+
+  if (status === 'available') {
+    if (myCell) {
+      setEl('modal-desc', `You're already searching ${myCell}. Update it first.`);
+      addBtn('modal-btns', `Go to My Cell (${myCell})`, 'btn-yellow', () => onCellTap(myCell));
+    } else {
+      addBtn('modal-btns', `🔍 Claim Cell ${id} — Start Searching`, 'btn-primary', () => claimCell(id));
+    }
+
+  } else if (isMine) {
+    showVol(data, 'You', true);
+    addBtn('modal-btns', '✅ Still Searching  (send heartbeat)', 'btn-ghost',   () => heartbeat(id, true));
+    addBtn('modal-btns', '✓ Area Cleared — All Done',           'btn-green',   () => setStatus(id, 'completed'));
+    addBtn('modal-btns', '⚠️ Need Backup / Emergency',          'btn-orange',  () => setStatus(id, 'emergency'));
+    addBtn('modal-btns', '🚨 FOUND HER',                        'btn-found',   () => setStatus(id, 'found'));
+    addBtn('modal-btns', '✗ Stopping Search (release square)',  'btn-primary', () => setStatus(id, 'abandoned'));
+
+  } else if (status === 'searching' || status === 'stale') {
+    showVol(data, status === 'stale' ? '⚠ No recent update' : 'Searching');
+    setEl('modal-desc', `Claimed by ${data.volunteerName || 'volunteer'}. Choose another square.`);
+
+  } else if (status === 'completed') {
+    showVol(data, 'Completed');
+    setEl('modal-desc', 'This area has been searched — no sign found.');
+
+  } else if (status === 'emergency') {
+    showVol(data, '🚨 NEEDS HELP');
+    setEl('modal-desc', 'EMERGENCY — this volunteer requires immediate assistance!');
+
+  } else if (status === 'found') {
+    showVol(data, '🎉 FOUND HERE');
+    setEl('modal-desc', '⭐ THE GIRL WAS FOUND IN THIS CELL');
+  }
+
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function showVol(data, note, isMe = false) {
+  const v = document.getElementById('modal-vol');
+  v.style.display = 'block';
+  const phone = data.volunteerPhone ? ('···' + String(data.volunteerPhone).slice(-4)) : '';
+  v.innerHTML = `<strong>${data.volunteerName || '?'}</strong>${isMe ? ' (You)' : ''} ${phone}<br>
+    ${note} · Claimed: ${fmtTime(data.claimedAt)}<br>
+    Last update: ${fmtTime(data.lastHb || data.claimedAt)}`;
+}
+
+document.getElementById('btn-modal-close').addEventListener('click', closeModal);
+document.getElementById('modal-overlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('modal-overlay')) closeModal();
+});
+function closeModal() { document.getElementById('modal-overlay').classList.remove('open'); }
+
+function addBtn(containerId, label, cls, fn) {
+  const b = document.createElement('button');
+  b.className = `btn ${cls}`;
+  b.textContent = label;
+  b.addEventListener('click', () => { fn(); closeModal(); });
+  document.getElementById(containerId).appendChild(b);
+}
+
+// ══════════════════════════════════════════════
+//  CELL OPERATIONS (Firestore)
+// ══════════════════════════════════════════════
+async function claimCell(id) {
+  if (!user) return;
+  const ref = doc(fbDb, 'grids', id);
+  try {
+    await runTransaction(fbDb, async tx => {
+      const snap = await tx.get(ref);
+      if (snap.exists() && snap.data().status === 'searching') throw new Error('already claimed');
+      tx.set(ref, {
+        status: 'searching',
+        volunteerId: user.uid,
+        volunteerName: myName,
+        volunteerPhone: user.phoneNumber || '',
+        claimedAt: serverTimestamp(),
+        lastHb: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+    });
+    myCell = id;
+    showMyBar();
+    await logAction(id, 'claimed', `${myName} started searching`);
+  } catch (e) {
+    if (e.message === 'already claimed') alert('Just claimed by someone else. Pick another square.');
+    else alert('Error: ' + e.message);
+  }
+}
+
+async function setStatus(id, newStatus) {
+  if (!user) return;
+  const ref = doc(fbDb, 'grids', id);
+  const statusLabels = {
+    completed: 'marked area clear',
+    abandoned: 'stopped searching',
+    emergency: 'called for EMERGENCY BACKUP',
+    found:     '🚨 REPORTED SHE WAS FOUND',
+  };
+
+  try {
+    if (newStatus === 'abandoned') {
+      await deleteDoc(ref);
+    } else {
+      await setDoc(ref, {
+        status: newStatus,
+        volunteerId: user.uid,
+        volunteerName: myName,
+        volunteerPhone: user.phoneNumber || '',
+        updatedAt: serverTimestamp(),
+        lastHb: serverTimestamp(),
+        claimedAt: gridState[id]?.claimedAt || serverTimestamp(),
+      });
+    }
+    await logAction(id, newStatus, `${myName} ${statusLabels[newStatus] || newStatus}`);
+
+    if (newStatus === 'abandoned' || newStatus === 'completed') {
+      myCell = null;
+      hideMyBar();
+    }
+  } catch (e) { alert('Update error: ' + e.message); }
+}
+
+async function heartbeat(id, manual = false) {
+  if (!user || !id) return;
+  try {
+    await updateDoc(doc(fbDb, 'grids', id), { lastHb: serverTimestamp() });
+    if (manual) await logAction(id, 'heartbeat', `${myName} confirmed still searching`);
+    pulseHb();
+  } catch (e) { console.warn('hb error', e); }
+}
+
+// ══════════════════════════════════════════════
+//  HEARTBEAT SYSTEM
+// ══════════════════════════════════════════════
+function startHeartbeat() {
+  if (hbTimer) clearInterval(hbTimer);
+  hbTimer = setInterval(() => {
+    if (myCell) heartbeat(myCell);
+    pulseHb();
+  }, HB_INTERVAL);
+  pulseHb();
+}
+
+function pulseHb() {
+  const d = document.getElementById('hb-dot');
+  d.classList.remove('alive');
+  void d.offsetWidth;
+  d.classList.add('alive');
+}
+
+function startStaleWatch() {
+  setInterval(async () => {
+    const now = Date.now();
+    for (const [id, data] of Object.entries(gridState)) {
+      if (!data || data.status !== 'searching') continue;
+      const age = now - (data.lastHb?.toMillis ? data.lastHb.toMillis() : 0);
+      if (age > RELEASE_THRESH) {
+        try {
+          await deleteDoc(doc(fbDb, 'grids', id));
+          await logAction(id, 'auto-released',
+            `System released after ${Math.round(age / 60000)}min inactivity`);
+        } catch {}
+      }
+    }
+    // Refresh stale display
+    Object.entries(gridState).forEach(([id, data]) => updateCellUI(id, data));
+  }, 60_000);
+}
+
+// ══════════════════════════════════════════════
+//  GPS
+// ══════════════════════════════════════════════
+document.getElementById('gps-btn').addEventListener('click', startGPS);
+
+function startGPS() {
+  if (!navigator.geolocation) { alert('GPS not available.'); return; }
+  if (gpsClear !== null) {
+    navigator.geolocation.clearWatch(gpsClear);
+    gpsClear = null;
+    document.querySelectorAll('.gps-dot').forEach(e => e.remove());
+    return;
+  }
+  gpsClear = navigator.geolocation.watchPosition(pos => {
+    const { latitude: lat, longitude: lon } = pos.coords;
+    const c = Math.floor((lon - G.west) / ((G.east - G.west) / G.cols));
+    const r = Math.floor((G.north - lat) / ((G.north - G.south) / G.rows));
+    document.querySelectorAll('.gps-dot').forEach(e => e.remove());
+    if (c >= 0 && c < G.cols && r >= 0 && r < G.rows) {
+      const id  = COL_LBL[c] + (r + 1);
+      const el  = document.querySelector(`[data-cid="${id}"]`);
+      if (el) {
+        const dot = document.createElement('div');
+        dot.className = 'gps-dot';
+        el.appendChild(dot);
+      }
+    }
+  }, () => alert('Could not get GPS. Enable location access.'), { enableHighAccuracy: true });
+}
+
+// ══════════════════════════════════════════════
+//  MY BAR
+// ══════════════════════════════════════════════
+function showMyBar() {
+  document.getElementById('my-bar').style.display = 'flex';
+  document.getElementById('my-bar-cell').textContent = myCell || '—';
+}
+function hideMyBar() {
+  document.getElementById('my-bar').style.display = 'none';
+}
+document.getElementById('btn-update-mine').addEventListener('click', () => {
+  if (myCell) onCellTap(myCell);
+});
+
+// ══════════════════════════════════════════════
+//  AUDIT LOG
+// ══════════════════════════════════════════════
+async function logAction(cellId, action, note = '') {
+  if (!fbDb || !user) return;
+  try {
+    const ref = doc(collection(fbDb, 'logs'));
+    await setDoc(ref, {
+      cellId,
+      action,
+      note,
+      volunteerId:    user.uid,
+      volunteerName:  myName || '?',
+      volunteerPhone: user.phoneNumber || '',
+      ts: serverTimestamp(),
+    });
+  } catch (e) { console.warn('log:', e); }
+}
+
+function renderLog(logs) {
+  const el = document.getElementById('audit-log');
+  if (!el) return;
+  if (!logs.length) { el.innerHTML = '<p class="muted" style="padding:8px">No actions yet.</p>'; return; }
+  el.innerHTML = logs.map(l => {
+    const t = l.ts?.toDate ? l.ts.toDate().toLocaleTimeString() : '?';
+    return `<div class="log-row">[${t}] <strong>${l.cellId}</strong> — ${l.action} — ${l.volunteerName}: ${l.note}</div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════
+//  ADMIN
+// ══════════════════════════════════════════════
+document.getElementById('admin-btn').addEventListener('click', () => {
+  const pin = prompt('Admin PIN:');
+  if (pin === ADMIN_PIN) {
+    isAdmin = true;
+    showScreen('screen-admin');
+    renderAdminVolunteers();
+  } else if (pin !== null) {
+    alert('Incorrect PIN.');
+  }
+});
+
+document.getElementById('btn-admin-back').addEventListener('click', () => showScreen('screen-grid'));
+
+function renderAdminVolunteers() {
+  const el = document.getElementById('admin-volunteers');
+  const entries = Object.entries(gridState).filter(([, d]) => d && d.status);
+  if (!entries.length) { el.innerHTML = '<p class="muted">No active records.</p>'; return; }
+
+  el.innerHTML = `<table class="admin-table">
+    <tr><th>Cell</th><th>Status</th><th>Volunteer</th><th>Phone</th><th>Since</th><th>Last HB</th><th></th></tr>
+    ${entries.map(([id, d]) => `
+      <tr>
+        <td><strong>${id}</strong></td>
+        <td>${d.status}</td>
+        <td>${d.volunteerName || '?'}</td>
+        <td>${d.volunteerPhone ? ('···' + String(d.volunteerPhone).slice(-4)) : '—'}</td>
+        <td>${fmtTime(d.claimedAt)}</td>
+        <td>${fmtTime(d.lastHb)}</td>
+        <td>
+          <button onclick="adminRelease('${id}')" style="font-size:11px;padding:4px 8px;background:var(--red);color:#fff;border:none;border-radius:4px;cursor:pointer">Release</button>
+        </td>
+      </tr>
+    `).join('')}
+  </table>`;
+}
+
+window.adminRelease = async function(id) {
+  if (!confirm(`Release cell ${id}?`)) return;
+  await deleteDoc(doc(fbDb, 'grids', id));
+  await logAction(id, 'admin-release', `Admin manually released ${id}`);
+  renderAdminVolunteers();
+};
+
+document.getElementById('btn-release-stale').addEventListener('click', async () => {
+  if (!confirm('Release all cells with no update in 20+ minutes?')) return;
+  const now = Date.now();
+  for (const [id, d] of Object.entries(gridState)) {
+    if (!d || d.status !== 'searching') continue;
+    const age = now - (d.lastHb?.toMillis ? d.lastHb.toMillis() : 0);
+    if (age > STALE_THRESH) {
+      await deleteDoc(doc(fbDb, 'grids', id));
+      await logAction(id, 'admin-stale-release', `Released stale cell after ${Math.round(age/60000)}min`);
+    }
+  }
+  renderAdminVolunteers();
+});
+
+document.getElementById('btn-mark-found').addEventListener('click', async () => {
+  if (!confirm('Declare the girl FOUND? This will alert all volunteers.')) return;
+  await setDoc(doc(fbDb, 'grids', '__GLOBAL_FOUND__'), {
+    status: 'found',
+    volunteerId: user.uid,
+    volunteerName: myName,
+    updatedAt: serverTimestamp(),
+    lastHb: serverTimestamp(),
+    claimedAt: serverTimestamp(),
+  });
+  await logAction('GLOBAL', 'DECLARED_FOUND', `Admin ${myName} declared search complete — FOUND`);
+  alert('FOUND signal sent to all volunteers.');
+});
+
+document.getElementById('btn-export-csv').addEventListener('click', async () => {
+  try {
+    const snap = await getDocs(query(collection(fbDb, 'logs'), orderBy('ts', 'asc')));
+    const rows = [['Timestamp','Cell','Action','Volunteer','Phone','Note']];
+    snap.forEach(d => {
+      const l = d.data();
+      rows.push([l.ts?.toDate().toISOString()||'', l.cellId, l.action, l.volunteerName||'', l.volunteerPhone||'', l.note||'']);
+    });
+    const csv  = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const a    = document.createElement('a');
+    a.href     = URL.createObjectURL(blob);
+    a.download = `search-log-${new Date().toISOString().slice(0,16).replace(':','-')}.csv`;
+    a.click();
+  } catch (e) { alert('Export error: ' + e.message); }
+});
+
+// ══════════════════════════════════════════════
+//  DEMO MODE (localStorage, single device)
+// ══════════════════════════════════════════════
+function enterDemoMode() {
+  user = { uid: 'demo-' + Math.random().toString(36).slice(2), phoneNumber: '+1demo' };
+  const saved = localStorage.getItem('sgName');
+  if (saved) { myName = saved; enterDemoApp(); }
+  else {
+    showScreen('screen-name');
+    document.getElementById('btn-save-name').addEventListener('click', () => {
+      const n = document.getElementById('inp-name').value.trim();
+      if (!n) return;
+      myName = n;
+      localStorage.setItem('sgName', n);
+      enterDemoApp();
+    }, { once: true });
+  }
+}
+
+function enterDemoApp() {
+  const raw = localStorage.getItem('sgGrid');
+  gridState = raw ? JSON.parse(raw) : {};
+  document.getElementById('app-header').style.display = 'flex';
+  document.getElementById('hdr-name').textContent = myName;
+  buildGrid();
+  Object.entries(gridState).forEach(([id, d]) => updateCellUI(id, d));
+  updateStats();
+  showScreen('screen-grid');
+
+  // Stub Firestore functions for demo
+  window.adminRelease = id => {
+    delete gridState[id];
+    localStorage.setItem('sgGrid', JSON.stringify(gridState));
+    updateCellUI(id, null);
+    updateStats();
+  };
+}
+
+// ══════════════════════════════════════════════
+//  HELPERS
+// ══════════════════════════════════════════════
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id)?.classList.add('active');
+}
+function setEl(id, txt) { document.getElementById(id).textContent = txt; }
+function setErr(id, msg) { document.getElementById(id).textContent = msg; }
+function clearErr(id)    { document.getElementById(id).textContent = ''; }
+function fmtTime(ts) {
+  if (!ts) return '?';
+  try {
+    const d = ts.toDate ? ts.toDate() : new Date(ts);
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  } catch { return '?'; }
+}
+function errMsg(e) {
+  if (e.code === 'auth/invalid-phone-number') return 'Invalid number. Include country code: +1 416...';
+  if (e.code === 'auth/too-many-requests')    return 'Too many attempts. Wait a minute and retry.';
+  return e.message || 'Unknown error.';
+}
+
+</script>
+</body>
+</html>
